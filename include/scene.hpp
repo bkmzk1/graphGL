@@ -9,6 +9,8 @@
 #include <symengine/parser.h>
 #include <symengine/lambda_double.h>
 
+#include "analyzer.hpp"
+
 class Graph {
     public:
         Graph(const std::string& formula, const std::string& variable);
@@ -52,3 +54,19 @@ class Axis {
         std::unique_ptr<veil::InstancedMesh> m_axisDrawable;
         std::unique_ptr<veil::InstancedText> m_rangeTextDrawable;
 }; //class Axis
+
+class AnalyticsDisplayer {
+    public:
+        AnalyticsDisplayer(const MathFunction& function, const MathFunction& derivative);
+        ~AnalyticsDisplayer();
+
+        inline veil::TextInstance& getRootsDrawable() { return *m_textDrawables[0]; }
+        inline veil::TextInstance& getSignIntDrawable() { return *m_textDrawables[1]; }
+        inline veil::TextInstance& getGrowthIntDrawable() { return *m_textDrawables[2]; }
+
+    private: 
+        std::unique_ptr<veil::Font> m_font;
+
+        std::array<std::unique_ptr<veil::Text>, 3> m_texts;
+        std::array<std::unique_ptr<veil::TextInstance>, 3> m_textDrawables;
+}; //class AnalyticsDisplayer

@@ -1,10 +1,8 @@
 
-#include <format>
-
 #include "../include/scene.hpp"
 #include "../include/analyzer.hpp"
 
-constexpr char kFormula[] = "1/x";
+constexpr char kFormula[] = "sin(x)";
 
 int main() {
 
@@ -15,25 +13,6 @@ int main() {
 
     MathFunction derivative(function.getDerivative(), "x");
     derivative.generatePoints(20.0f, 0.25f);
-    
-    const auto& roots = function.getRoots();
-    const auto& constIntervals = function.getSignIntervals();
-    const auto& growthIntervals = derivative.getSignIntervals();
-
-    std::cout << "Roots:\n\t";
-    for (const auto& root : roots)
-        std::cout << std::format("{:.2f}, ", root);
-    std::cout << std::endl;
-
-    std::cout << "Constant sign intervals:\n\t";
-    for (const auto& interval : constIntervals) 
-        std::cout << interval << ",  ";
-    std::cout << std::endl;
-
-    std::cout << "Increase/decrease intervals:\n\t";
-    for (const auto& interval : growthIntervals) 
-        std::cout << interval << ",  ";
-    std::cout << std::endl;
 
     veil::Window window("graphGL", {800.0f, 800.0f});
     window.setInputMode(GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -48,14 +27,18 @@ int main() {
         "instanced", { {"shader/instanced.vert", GL_VERTEX_SHADER}, {"shader/fragment.frag", GL_FRAGMENT_SHADER} } 
     );
     veil::Storage<veil::ShaderStorage>().loadShader(
-        "font", { {"shader/instanced.vert", GL_VERTEX_SHADER}, {"shader/font.frag", GL_FRAGMENT_SHADER} } 
+        "basicFont", { {"shader/vertex.vert", GL_VERTEX_SHADER}, {"shader/font.frag", GL_FRAGMENT_SHADER} } 
+    );
+    veil::Storage<veil::ShaderStorage>().loadShader(
+        "instancedFont", { {"shader/instanced.vert", GL_VERTEX_SHADER}, {"shader/font.frag", GL_FRAGMENT_SHADER} } 
     );
     veil::Storage<veil::UniformBufferStorage>().loadUBO<veil::GLCamera::Attitude>(
         0
     );
     const veil::ShaderProgram* basicShader = veil::Storage<veil::ShaderStorage>().getShader("basic");
     const veil::ShaderProgram* instancedShader = veil::Storage<veil::ShaderStorage>().getShader("instanced");
-    const veil::ShaderProgram* fontShader = veil::Storage<veil::ShaderStorage>().getShader("font");
+    const veil::ShaderProgram* basicFontShader = veil::Storage<veil::ShaderStorage>().getShader("basicFont");
+    const veil::ShaderProgram* instancedFontShader = veil::Storage<veil::ShaderStorage>().getShader("instancedFont");
     const veil::UniformBuffer* attitudeUBO = veil::Storage<veil::UniformBufferStorage>().getUBO(0);
 
     veil::GLCamera camera(
@@ -70,28 +53,37 @@ int main() {
     graph.getDrawable().scale({5.0f, 5.0f, 5.0f});
     graph.getDrawable().setDrawingMode(GL_LINE_STRIP);
 
+    AnalyticsDisplayer analyticsDisplayer(function, derivative);
+
     veil::Renderer renderer;
     renderer.setForTargetCallback(
         [&](const veil::ShaderProgram* shader, const veil::Drawable* drawable) {
 
+            if (drawable->getType() == veil::DrawableType::TEXT_SINGULAR) {
+                const veil::TextInstance* text = dynamic_cast<const veil::TextInstance*>(drawable);
+                renderer.uploadUniformDirect(*shader, "uModel", text->getModelMat());
+            }
             if (drawable->getType() == veil::DrawableType::MESH_SINGULAR) {
-                const veil::MeshInstance* mesh = static_cast<const veil::MeshInstance*>(drawable);
+                const veil::MeshInstance* mesh = dynamic_cast<const veil::MeshInstance*>(drawable);
                 renderer.uploadUniformDirect(*shader, "uColor", veil::Vector3{1.0f, 0.0f, 0.0f});
                 renderer.uploadUniformDirect(*shader, "uModel", mesh->getModelMat());
             }
             if (drawable->getType() == veil::DrawableType::MESH_INSTANCED) {
-                const veil::InstancedMesh* mesh = static_cast<const veil::InstancedMesh*>(drawable);
+                const veil::InstancedMesh* mesh = dynamic_cast<const veil::InstancedMesh*>(drawable);
                 renderer.uploadUniformDirect(*shader, "uColor", veil::Vector3{1.0f, 1.0f, 1.0f});
             }
         }
     );
     renderer.reserveShaders(
-        { basicShader, instancedShader, fontShader }
+        { basicShader, instancedShader, basicFontShader, instancedFontShader }
     );
     renderer.addTargets({ 
-        { *basicShader,     graph.getDrawable() },
-        { *instancedShader, axis.getAxisDrawable() },
-        { *fontShader,      axis.getRangeTextDrawable() }
+        { *basicShader,         graph.getDrawable() },
+        { *instancedShader,     axis.getAxisDrawable() },
+        { *instancedFontShader, axis.getRangeTextDrawable() },
+        { *basicFontShader,     analyticsDisplayer.getRootsDrawable() },
+        { *basicFontShader,     analyticsDisplayer.getSignIntDrawable() },
+        { *basicFontShader,     analyticsDisplayer.getGrowthIntDrawable() }
     });
     renderer.uploadUniformBuffers( 
         std::make_pair(attitudeUBO, [&]() { return camera.getAttitude(); }) 

@@ -166,3 +166,52 @@ void Axis::updateRange(float range) {
 
     m_rangeText->setText(std::format("{:.2f}", range));
 }
+
+AnalyticsDisplayer::AnalyticsDisplayer(const MathFunction& function, const MathFunction& derivative) {
+
+    std::string roots = "Roots: ";
+    for (const auto& root : function.getRoots()) 
+        roots += std::format("{:.2f}, ", root);
+
+    std::string sign = "Sign intervals: ";
+    for (const auto& interval : function.getSignIntervals())
+        sign += std::format("{}({:.2f}; {:.2f}),  ", (interval.sign > 0 ? '+' : '-'), interval.start, interval.end);
+
+    std::string growth = "Growth intervals: ";
+    for (const auto& interval : derivative.getSignIntervals())
+        growth += std::format("{}({:.2f}; {:.2f}),  ", (interval.sign > 0 ? '+' : '-'), interval.start, interval.end);
+
+    m_font = std::make_unique<veil::Font>(
+        "/usr/share/fonts/google-noto/NotoSans-Regular.ttf", 75
+    );
+
+    m_texts[0] = std::make_unique<veil::Text>(*m_font);
+    m_texts[0]->setText(roots);
+
+    m_texts[1] = std::make_unique<veil::Text>(*m_font);
+    m_texts[1]->setText(sign);
+
+    m_texts[2] = std::make_unique<veil::Text>(*m_font);
+    m_texts[2]->setText(growth);
+
+    m_textDrawables[0] = std::make_unique<veil::TextInstance>(*m_texts[0]);
+    m_textDrawables[1] = std::make_unique<veil::TextInstance>(*m_texts[1]);
+    m_textDrawables[2] = std::make_unique<veil::TextInstance>(*m_texts[2]);
+
+    for (int i = 0; i < 3; ++i) {
+        m_textDrawables[i]->translate({5.6f, 4.5f - 2.25*i, 0.0f});
+        m_textDrawables[i]->rotate(90.0f, {0.0f, 1.0f, 0.0f});
+        m_textDrawables[i]->scale({0.003f, 0.003f, 0.003f});
+        m_textDrawables[i]->setDrawingMode(GL_TRIANGLES);
+    }
+}
+AnalyticsDisplayer::~AnalyticsDisplayer() {
+
+    m_font.reset();
+
+    for (int i = 0; i < 3; ++i) {
+
+        m_textDrawables[i].reset();
+        m_texts[i].reset();
+    }
+}
