@@ -108,14 +108,30 @@ Axis::Axis(const veil::ShaderProgram& instancedShader, std::string_view attribNa
 
     for (int i = 0; i < 2; ++i) {
 
-        veil::Matrix4 model{1.0f};
-        model.rotate(90.0f * i, {0.0f, 0.0f, 1.0f});
-        model.scale({5.0f, 5.0f, 5.0f});
+        veil::Matrix4 axisModel{1.0f};
+        axisModel.rotate(90.0f * i, {0.0f, 0.0f, 1.0f});
+        axisModel.scale({5.0f, 5.0f, 5.0f});
 
-        m_axisMatrices[i] = model;
+        float moveX[] = {1.0f, 0.0f};
+        float moveY[] = {0.0f, 1.0f};
+
+        veil::Matrix4 rangeTextModel{1.0f};
+        rangeTextModel.translate({5.05f*moveX[i], 5.05f*moveY[i], 0.0f});
+        rangeTextModel.scale({0.003f, 0.003f, 0.003f});
+
+        m_axisMatrices[i] = axisModel;
+        m_rangeTextMatrices[i] = rangeTextModel;
     }
+
+    m_font = std::make_unique<veil::Font>(
+        "/usr/share/fonts/google-noto/NotoSans-Regular.ttf", 75
+    );
+    m_rangeText = std::make_unique<veil::Text>(
+        *m_font
+    );
+    m_rangeText->setText("0.0");
     
-    m_mesh = std::make_unique<veil::Mesh>(
+    m_axisMesh = std::make_unique<veil::Mesh>(
         std::vector<veil::Vertex>{ 
             veil::Vertex{.position={-1.0f, 0.0f, 0.0f}}, 
             veil::Vertex{.position={1.0f, 0.0f, 0.0f}} 
@@ -123,151 +139,30 @@ Axis::Axis(const veil::ShaderProgram& instancedShader, std::string_view attribNa
         std::vector<unsigned int>{0, 1},
         veil::Material{}
     );
-    m_drawable = std::make_unique<veil::InstancedMesh>(*m_mesh, 2);
-    m_drawable->setInstanceAttribute(instancedShader, attribName);
-    m_drawable->setInstances(m_axisMatrices);
-    m_drawable->setDrawingMode(GL_LINES);
+
+    m_axisDrawable = std::make_unique<veil::InstancedMesh>(*m_axisMesh, 2);
+    m_axisDrawable->setInstanceAttribute(instancedShader, attribName);
+    m_axisDrawable->setInstances(m_axisMatrices);
+    m_axisDrawable->setDrawingMode(GL_LINES);
+
+    m_rangeTextDrawable = std::make_unique<veil::InstancedText>(*m_rangeText, 2);
+    m_rangeTextDrawable->setInstanceAttribute(instancedShader, attribName);
+    m_rangeTextDrawable->setInstances(m_rangeTextMatrices);
+    m_rangeTextDrawable->setDrawingMode(GL_TRIANGLES);
 }
 
 Axis::~Axis() {
 
-    m_drawable.reset();
-    m_mesh.reset();
+    m_font.reset();
+
+    m_axisDrawable.reset();
+    m_axisMesh.reset();
+
+    m_rangeTextDrawable.reset();
+    m_rangeText.reset();
 }
 
-Scene::Scene(const std::string& formula, const std::string& variable) {
+void Axis::updateRange(float range) {
 
-    initWindow();
-
-    veil::initGL(m_window.get());
-    veil::toggleGLFlags(m_window.get(), { GL_DEPTH_TEST, GL_PRIMITIVE_RESTART }, true);
-
-    initDrawables(formula, variable);
-    initLoop();
-}
-
-Scene::~Scene() {
-
-    veil::Storage<veil::UniformBufferStorage>().shutdown();
-    veil::Storage<veil::ShaderStorage>().shutdown();
-}
-
-void Scene::initWindow() {
-
-    m_window = std::make_unique<veil::Window>(
-        "graphGL", 
-        veil::Vector2{700.0f, 700.0f}
-    );
-    m_window->setInputMode(GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-}
-
-void Scene::initDrawables(const std::string& formula, const std::string& variable) {
-
-    veil::Storage<veil::UniformBufferStorage>().loadUBO<veil::GLCamera::Attitude>(
-        0
-    );
-    veil::Storage<veil::ShaderStorage>().loadShader(
-        "basicShader", 
-        { { "shader/vertex.vert", GL_VERTEX_SHADER }, { "shader/fragment.frag", GL_FRAGMENT_SHADER } }
-    );
-    veil::Storage<veil::ShaderStorage>().loadShader(
-        "instancedShader", 
-        { { "shader/instanced.vert", GL_VERTEX_SHADER }, { "shader/fragment.frag", GL_FRAGMENT_SHADER } }
-    );
-    const veil::UniformBuffer* attitudeUBO = veil::Storage<veil::UniformBufferStorage>().getUBO(0);
-    const veil::ShaderProgram* basicShader = veil::Storage<veil::ShaderStorage>().getShader("basicShader");
-    const veil::ShaderProgram* instancedShader = veil::Storage<veil::ShaderStorage>().getShader("instancedShader");
-
-    m_axis = std::make_unique<Axis>(*instancedShader, "aModel");
-
-    m_graph = std::make_unique<Graph>(formula, variable);
-    m_graph->buildMesh(20.0f, 2000);
-    m_graph->getDrawable().scale({5.0f, 5.0f, 5.0f});
-    m_graph->getDrawable().setDrawingMode(GL_LINE_STRIP);
-
-    m_camera = std::make_unique<veil::GLCamera>(
-        veil::Vector3{0.0f, 0.0f, 5.5f}, 
-        veil::Vector3{0.0f, 1.0f, 0.0f}, 
-        m_window->getAspectRatio(), 
-        90.0f 
-    );
-
-    m_renderer = std::make_unique<veil::Renderer>();
-    
-    m_renderer->setForTargetCallback(
-        [&](const veil::ShaderProgram* shader, const veil::Drawable* drawable) {
-
-            if (drawable->getType() == veil::DrawableType::MESH_SINGULAR) {
-                const veil::MeshInstance* mesh = static_cast<const veil::MeshInstance*>(drawable);
-                m_renderer->uploadUniformDirect(*shader, "uColor", veil::Vector3{1.0f, 0.0f, 0.0f});
-                m_renderer->uploadUniformDirect(*shader, "uModel", mesh->getModelMat());
-            }
-            if (drawable->getType() == veil::DrawableType::MESH_INSTANCED) {
-                const veil::InstancedMesh* mesh = static_cast<const veil::InstancedMesh*>(drawable);
-                m_renderer->uploadUniformDirect(*shader, "uColor", veil::Vector3{1.0f, 1.0f, 1.0f});
-            }
-        }
-    );
-    m_renderer->reserveShaders(
-        { basicShader, instancedShader }
-    );
-    m_renderer->addTargets({ 
-        { *basicShader,     m_graph->getDrawable() },
-        { *instancedShader, m_axis->getDrawable() } 
-    });
-    m_renderer->uploadUniformBuffers( 
-        std::make_pair(attitudeUBO, [&]() { return m_camera->getAttitude(); }) 
-    );
-}
-
-void Scene::initLoop() {
-
-    m_window->setFramebufferCallback(
-        [&]() {
-            m_camera->updateProjection(90.0f, m_window->getAspectRatio());
-            m_camera->resyncMouse();
-        }
-    );
-    m_window->setMouseCallback(
-        [&](double xpos, double ypos) {
-            m_camera->calculateAttitude(xpos, ypos);
-        }
-    );
-    m_window->setScrollCallback(
-        [&](double xoff, double yoff) {
-
-            float range = m_graph->getCurrentRange();
-            if (yoff > 0) 
-                m_graph->buildMesh((std::clamp(range/1.1f, 0.5f, 50.0f)), 2000);
-            if (yoff < 0 && range <= 70.0f) 
-                m_graph->buildMesh((std::clamp(range*1.1f, 0.5f, 50.0f)), 2000);
-        }   
-    );
-    m_window->setKeyCallback(
-        [&](const veil::KeyEvents& ke) {
-
-            float dt = m_window->getClock().getDeltaTime();
-            float speed = 2.0f;
-
-            if(ke.keysDown[GLFW_KEY_W])
-                m_camera->move(+m_camera->getFront() * dt * speed);
-            if(ke.keysDown[GLFW_KEY_S])
-                m_camera->move(-m_camera->getFront() * dt * speed);
-            if(ke.keysDown[GLFW_KEY_A])
-                m_camera->move(-veil::Vector3::cross(m_camera->getFront(), m_camera->getUp()) * dt * speed);
-            if(ke.keysDown[GLFW_KEY_D])
-                m_camera->move(+veil::Vector3::cross(m_camera->getFront(), m_camera->getUp()) * dt * speed);
-        }
-    );
-    m_window->setUpdateCallback(
-        [&]() {
-            m_renderer->callbackUniforms();
-            m_renderer->callbackRender();
-        }
-    );
-}
-
-int Scene::startLoop() {
-
-    return m_window->startUpdateLoop();
+    m_rangeText->setText(std::format("{:.2f}", range));
 }

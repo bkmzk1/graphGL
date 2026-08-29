@@ -34,32 +34,21 @@ class Axis {
     public:
         Axis(const veil::ShaderProgram& instancedShader, std::string_view attribName);
         ~Axis();
+
+        void updateRange(float range);
         
-        inline const veil::Mesh& getMesh() const { return *m_mesh; }
-        inline veil::InstancedMesh& getDrawable() { return *m_drawable; }
+        inline veil::InstancedMesh& getAxisDrawable() { return *m_axisDrawable; }
+        inline veil::InstancedText& getRangeTextDrawable() { return *m_rangeTextDrawable; }
 
     private:
+        std::unique_ptr<veil::Font> m_font;
+
         std::array<veil::Matrix4, 2> m_axisMatrices;
-        std::unique_ptr<veil::Mesh> m_mesh;
-        std::unique_ptr<veil::InstancedMesh> m_drawable;
+        std::array<veil::Matrix4, 2> m_rangeTextMatrices;
+
+        std::unique_ptr<veil::Mesh> m_axisMesh;
+        std::unique_ptr<veil::Text> m_rangeText;
+
+        std::unique_ptr<veil::InstancedMesh> m_axisDrawable;
+        std::unique_ptr<veil::InstancedText> m_rangeTextDrawable;
 }; //class Axis
-
-class Scene {
-    public:
-        Scene(const std::string& formula, const std::string& variable);
-        ~Scene();
-
-        int startLoop();
-
-    private:
-        std::unique_ptr<veil::Window>   m_window;
-        std::unique_ptr<veil::GLCamera> m_camera;
-        std::unique_ptr<veil::Renderer> m_renderer;
-
-        std::unique_ptr<Axis>  m_axis;
-        std::unique_ptr<Graph> m_graph;
-
-        void initWindow();
-        void initDrawables(const std::string& formula, const std::string& variable);
-        void initLoop();
-}; //class Scene
