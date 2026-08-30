@@ -2,7 +2,7 @@
 #include "../include/scene.hpp"
 #include "../include/analyzer.hpp"
 
-constexpr char kFormula[] = "sin(x)";
+constexpr char kFormula[] = "x^2+4*x";
 
 int main() {
 

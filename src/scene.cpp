@@ -170,16 +170,28 @@ void Axis::updateRange(float range) {
 AnalyticsDisplayer::AnalyticsDisplayer(const MathFunction& function, const MathFunction& derivative) {
 
     std::string roots = "Roots: ";
-    for (const auto& root : function.getRoots()) 
-        roots += std::format("{:.2f}, ", root);
+    const auto& rootArr = function.getRoots();
+    if (rootArr.empty())
+        roots += "None";
+    else
+        for (const auto& root : rootArr) 
+            roots += std::format("{:.2f}, ", root);
 
     std::string sign = "Sign intervals: ";
-    for (const auto& interval : function.getSignIntervals())
-        sign += std::format("{}({:.2f}; {:.2f}),  ", (interval.sign > 0 ? '+' : '-'), interval.start, interval.end);
+    const auto& signArr = function.getSignIntervals();
+    if (signArr.empty())
+        sign += "None";
+    else
+        for (const auto& interval : signArr)
+            sign += std::format("{}({:.2f}; {:.2f}),  ", (interval.sign > 0 ? '+' : '-'), interval.start, interval.end);
 
     std::string growth = "Growth intervals: ";
-    for (const auto& interval : derivative.getSignIntervals())
-        growth += std::format("{}({:.2f}; {:.2f}),  ", (interval.sign > 0 ? '+' : '-'), interval.start, interval.end);
+    const auto& growthArr = derivative.getSignIntervals();
+    if (growthArr.empty())
+        growth += "None";
+    else
+        for (const auto& interval : growthArr)
+            growth += std::format("{}({:.2f}; {:.2f}),  ", (interval.sign > 0 ? '+' : '-'), interval.start, interval.end);
 
     m_font = std::make_unique<veil::Font>(
         "/usr/share/fonts/google-noto/NotoSans-Regular.ttf", 75
