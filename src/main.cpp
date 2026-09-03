@@ -25,14 +25,6 @@ int main() {
     veil::initGL(&window);
     veil::toggleGLFlags(&window, {GL_DEPTH_TEST, GL_CULL_FACE, GL_BLEND, GL_PRIMITIVE_RESTART}, true);
 
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    io.MouseDrawCursor = false;
-    ImGui_ImplGlfw_InitForOpenGL(window.getNativeHandle(), true);
-    ImGui_ImplOpenGL3_Init("#version 460");
-
     veil::Storage<veil::ShaderStorage>().loadShader(
         "basic", { {"shader/vertex.vert", GL_VERTEX_SHADER}, {"shader/fragment.frag", GL_FRAGMENT_SHADER} } 
     );
@@ -102,7 +94,6 @@ int main() {
     );
     window.setMouseCallback(
         [&](double xpos, double ypos) {
-            ImGui_ImplGlfw_CursorPosCallback(window.getNativeHandle(), xpos, ypos);
 
             if (cursorDisabled)
                 camera.calculateAttitude(xpos, ypos);
@@ -110,7 +101,6 @@ int main() {
     );
     window.setScrollCallback(
         [&](double xoff, double yoff) {
-            ImGui_ImplGlfw_ScrollCallback(window.getNativeHandle(), xoff, yoff);
 
             if (!cursorDisabled)
                 return;
@@ -126,15 +116,6 @@ int main() {
     );
     window.setKeyCallback(
         [&](const veil::KeyEvents& ke) {
-
-            static bool prevKeysDown[GLFW_KEY_LAST + 1] = {};
-            for (int k = GLFW_KEY_SPACE; k <= GLFW_KEY_LAST; ++k) {
-                bool down = ke.keysDown[k];
-                if (down != prevKeysDown[k]) {
-                    ImGui_ImplGlfw_KeyCallback(window.getNativeHandle(), k, 0, down ? GLFW_PRESS : GLFW_RELEASE, 0);
-                    prevKeysDown[k] = down;
-                }
-            }
 
             if (ImGui::GetIO().WantTextInput)
                 return;
@@ -169,19 +150,6 @@ int main() {
                 camera.move(+veil::Vector3::cross(camera.getFront(), camera.getUp()) * dt * speed);
         }
     );
-    window.setMouseButtonCallback(
-        [&](const veil::KeyEvents& mbe) {
-
-            static bool prevDown[GLFW_MOUSE_BUTTON_LAST + 1] = {};
-            for (int b = 0; b <= GLFW_MOUSE_BUTTON_LAST; ++b) {
-                bool down = mbe.keysDown[b];
-                if (down != prevDown[b]) {
-                    ImGui_ImplGlfw_MouseButtonCallback(window.getNativeHandle(), b, down ? GLFW_PRESS : GLFW_RELEASE, 0);
-                    prevDown[b] = down;
-                }
-            }
-        }
-    );
 
     window.setUpdateCallback(
         [&]() {
@@ -194,6 +162,9 @@ int main() {
             if (ImGui::InputText("Enter Function", inputBuf, IM_ARRAYSIZE(inputBuf), ImGuiInputTextFlags_EnterReturnsTrue)) {
                 std::strncpy(formula, inputBuf, sizeof(formula) - 1);
                 formula[sizeof(formula) - 1] = '\0';
+                
+                graph.setFormula(formula);
+                graph.buildMesh(graph.getCurrentRange(), 1500);
             }
             ImGui::End();
 
@@ -204,6 +175,14 @@ int main() {
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         }
     );
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.MouseDrawCursor = false;
+    ImGui_ImplGlfw_InitForOpenGL(window.getNativeHandle(), true);
+    ImGui_ImplOpenGL3_Init("#version 460");
 
     int code = window.startUpdateLoop();
 

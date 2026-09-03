@@ -16,6 +16,7 @@ class Graph {
         Graph(const std::string& formula, const std::string& variable);
         ~Graph();
 
+        void setFormula(const std::string& formula);
         void buildMesh(float range, int n);
 
         inline float getCurrentRange() const { return m_range; }
@@ -27,8 +28,8 @@ class Graph {
         std::unique_ptr<veil::Mesh> m_mesh;
         std::unique_ptr<veil::MeshInstance> m_drawable;
 
-        const SymEngine::Expression m_variable;
-        const SymEngine::Expression m_functionExpr;
+        SymEngine::Expression m_variable;
+        SymEngine::Expression m_functionExpr;
         mutable SymEngine::LambdaRealDoubleVisitor m_functionLambda;
 }; //class Graph
 

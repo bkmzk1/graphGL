@@ -19,6 +19,12 @@ Graph::~Graph() {
     m_mesh.reset();
 }
 
+void Graph::setFormula(const std::string& formula) {
+
+    m_functionExpr = SymEngine::parse(formula);
+    m_functionLambda.init({m_variable}, m_functionExpr);
+}
+
 void Graph::buildMesh(float range, int n) {
 
     m_range = range;
