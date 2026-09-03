@@ -13,20 +13,38 @@ set(CMAKE_POLICY_VERSION_MINIMUM 3.10)
 
 project(graphGL)
 
+find_package(glfw3     REQUIRED)
+find_package(OpenGL    REQUIRED)
 find_package(veil      CONFIG REQUIRED)
 find_package(SymEngine CONFIG REQUIRED)
+
+set(IMGUI_DIR 
+    "${CMAKE_CURRENT_SOURCE_DIR}/vendor/dearimgui"
+)
+set(IMGUI_SOURCES
+    ${IMGUI_DIR}/imgui.cpp
+    ${IMGUI_DIR}/imgui_draw.cpp
+    ${IMGUI_DIR}/imgui_tables.cpp
+    ${IMGUI_DIR}/imgui_widgets.cpp
+    ${IMGUI_DIR}/imgui_impl_glfw.cpp
+    ${IMGUI_DIR}/imgui_impl_opengl3.cpp
+)
 
 add_executable(
     graphGL src/main.cpp
             src/scene.cpp
             src/analyzer.cpp
+            ${IMGUI_SOURCES}
 )
 
 target_link_libraries(
-    graphGL PRIVATE veil::veil
+    graphGL PRIVATE glfw
+                    OpenGL::GL
+                    veil::veil
                     ${SYMENGINE_LIBRARIES}
 )
 
 target_include_directories(
     graphGL PRIVATE ${SYMENGINE_INCLUDE_DIRS}
+                    ${IMGUI_DIR}
 )

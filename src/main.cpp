@@ -2,23 +2,36 @@
 #include "../include/scene.hpp"
 #include "../include/analyzer.hpp"
 
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
+
 constexpr char kFormula[] = "x^2+4*x";
 
 int main() {
 
-    veil::LogTimer::toggle(false);
+    bool cursorDisabled = true;
 
     MathFunction function(kFormula, "x");
     function.generatePoints(20.0f, 0.25f);
-
+    
     MathFunction derivative(function.getDerivative(), "x");
     derivative.generatePoints(20.0f, 0.25f);
-
+    
     veil::Window window("graphGL", {800.0f, 800.0f});
     window.setInputMode(GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     veil::initGL(&window);
     veil::toggleGLFlags(&window, {GL_DEPTH_TEST, GL_CULL_FACE, GL_BLEND, GL_PRIMITIVE_RESTART}, true);
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.MouseDrawCursor = false;
+
+    ImGui_ImplGlfw_InitForOpenGL(window.getNativeHandle(), false);
+    ImGui_ImplOpenGL3_Init("#version 460");
 
     veil::Storage<veil::ShaderStorage>().loadShader(
         "basic", { {"shader/vertex.vert", GL_VERTEX_SHADER}, {"shader/fragment.frag", GL_FRAGMENT_SHADER} } 
@@ -53,8 +66,6 @@ int main() {
     graph.getDrawable().scale({5.0f, 5.0f, 5.0f});
     graph.getDrawable().setDrawingMode(GL_LINE_STRIP);
 
-    AnalyticsDisplayer analyticsDisplayer(function, derivative);
-
     veil::Renderer renderer;
     renderer.setForTargetCallback(
         [&](const veil::ShaderProgram* shader, const veil::Drawable* drawable) {
@@ -80,10 +91,7 @@ int main() {
     renderer.addTargets({ 
         { *basicShader,         graph.getDrawable() },
         { *instancedShader,     axis.getAxisDrawable() },
-        { *instancedFontShader, axis.getRangeTextDrawable() },
-        { *basicFontShader,     analyticsDisplayer.getRootsDrawable() },
-        { *basicFontShader,     analyticsDisplayer.getSignIntDrawable() },
-        { *basicFontShader,     analyticsDisplayer.getGrowthIntDrawable() }
+        { *instancedFontShader, axis.getRangeTextDrawable() }
     });
     renderer.uploadUniformBuffers( 
         std::make_pair(attitudeUBO, [&]() { return camera.getAttitude(); }) 
@@ -97,11 +105,15 @@ int main() {
     );
     window.setMouseCallback(
         [&](double xpos, double ypos) {
-            camera.calculateAttitude(xpos, ypos);
+            ImGui_ImplGlfw_CursorPosCallback(window.getNativeHandle(), xpos, ypos);
+
+            if (cursorDisabled)
+                camera.calculateAttitude(xpos, ypos);
         }
     );
     window.setScrollCallback(
         [&](double xoff, double yoff) {
+            ImGui_ImplGlfw_ScrollCallback(window.getNativeHandle(), xoff, yoff);
 
             float range = graph.getCurrentRange();
             if (yoff > 0) 
@@ -118,6 +130,24 @@ int main() {
             float dt = window.getClock().getDeltaTime();
             float speed = 2.0f;
 
+            if (ke.keysDown[GLFW_KEY_C]) {
+                if (cursorDisabled) {
+                    window.setInputMode(GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                    camera.resyncMouse();
+                    cursorDisabled = false;
+                }
+            } 
+            else {
+                if (!cursorDisabled) {
+                    window.setInputMode(GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+                    camera.resyncMouse(); 
+                    cursorDisabled = true;
+                }
+            }
+
+            if (!cursorDisabled)
+                return; 
+
             if(ke.keysDown[GLFW_KEY_W])
                 camera.move(+camera.getFront() * dt * speed);
             if(ke.keysDown[GLFW_KEY_S])
@@ -128,13 +158,44 @@ int main() {
                 camera.move(+veil::Vector3::cross(camera.getFront(), camera.getUp()) * dt * speed);
         }
     );
+    window.setMouseButtonCallback(
+        [&](const veil::KeyEvents& mbe) {
+            static bool prevDown[GLFW_MOUSE_BUTTON_LAST + 1] = {};
+
+            for (int b = 0; b <= GLFW_MOUSE_BUTTON_LAST; ++b) {
+                bool down = mbe.keysDown[b];
+                if (down != prevDown[b]) {
+                    ImGui_ImplGlfw_MouseButtonCallback(window.getNativeHandle(), b, down ? GLFW_PRESS : GLFW_RELEASE, 0);
+                    prevDown[b] = down;
+                }
+            }
+        }
+    );
+
     window.setUpdateCallback(
         [&]() {
+
+            ImGui_ImplOpenGL3_NewFrame();
+            ImGui_ImplGlfw_NewFrame();
+            ImGui::NewFrame();
+
+            ImGui::Begin("My Debug Window");
+            ImGui::Text("Hello, Worldssssssssssssssssssss!");
+            ImGui::End();
+
             renderer.callbackUniforms();
             renderer.callbackRender();
+
+            ImGui::Render();
+            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         }
     );
 
     int code = window.startUpdateLoop();
+
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+
     std::_Exit(code);
 }
