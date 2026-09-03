@@ -6,21 +6,22 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
-constexpr char kFormula[] = "x^2+4*x";
+#include <cstring>
 
 int main() {
 
     bool cursorDisabled = true;
 
-    MathFunction function(kFormula, "x");
+    char formula[128] = "x";
+    char inputBuf[128] = "";
+
+    MathFunction function(formula, "x");
     function.generatePoints(20.0f, 0.25f);
-    
     MathFunction derivative(function.getDerivative(), "x");
     derivative.generatePoints(20.0f, 0.25f);
     
     veil::Window window("graphGL", {800.0f, 800.0f});
     window.setInputMode(GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
     veil::initGL(&window);
     veil::toggleGLFlags(&window, {GL_DEPTH_TEST, GL_CULL_FACE, GL_BLEND, GL_PRIMITIVE_RESTART}, true);
 
@@ -29,8 +30,7 @@ int main() {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.MouseDrawCursor = false;
-
-    ImGui_ImplGlfw_InitForOpenGL(window.getNativeHandle(), false);
+    ImGui_ImplGlfw_InitForOpenGL(window.getNativeHandle(), true);
     ImGui_ImplOpenGL3_Init("#version 460");
 
     veil::Storage<veil::ShaderStorage>().loadShader(
@@ -54,14 +54,11 @@ int main() {
     const veil::ShaderProgram* instancedFontShader = veil::Storage<veil::ShaderStorage>().getShader("instancedFont");
     const veil::UniformBuffer* attitudeUBO = veil::Storage<veil::UniformBufferStorage>().getUBO(0);
 
-    veil::GLCamera camera(
-        {0.0f, 0.0f, 5.5f}, {0.0f, 1.0f, 0.0f}, window.getAspectRatio(), 90.0f 
-    );
+    veil::GLCamera camera({0.0f, 0.0f, 5.5f}, {0.0f, 1.0f, 0.0f}, window.getAspectRatio(), 90.0f);
 
     Axis axis(*instancedShader, "aModel");
     axis.updateRange(20.0f);
-
-    Graph graph(kFormula, "x");
+    Graph graph(formula, "x");
     graph.buildMesh(20.0f, 1500);
     graph.getDrawable().scale({5.0f, 5.0f, 5.0f});
     graph.getDrawable().setDrawingMode(GL_LINE_STRIP);
@@ -115,6 +112,9 @@ int main() {
         [&](double xoff, double yoff) {
             ImGui_ImplGlfw_ScrollCallback(window.getNativeHandle(), xoff, yoff);
 
+            if (!cursorDisabled)
+                return;
+
             float range = graph.getCurrentRange();
             if (yoff > 0) 
                 graph.buildMesh((std::clamp(range/1.1f, 0.5f, 50.0f)), 1500);
@@ -127,26 +127,37 @@ int main() {
     window.setKeyCallback(
         [&](const veil::KeyEvents& ke) {
 
-            float dt = window.getClock().getDeltaTime();
-            float speed = 2.0f;
-
-            if (ke.keysDown[GLFW_KEY_C]) {
-                if (cursorDisabled) {
-                    window.setInputMode(GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-                    camera.resyncMouse();
-                    cursorDisabled = false;
-                }
-            } 
-            else {
-                if (!cursorDisabled) {
-                    window.setInputMode(GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-                    camera.resyncMouse(); 
-                    cursorDisabled = true;
+            static bool prevKeysDown[GLFW_KEY_LAST + 1] = {};
+            for (int k = GLFW_KEY_SPACE; k <= GLFW_KEY_LAST; ++k) {
+                bool down = ke.keysDown[k];
+                if (down != prevKeysDown[k]) {
+                    ImGui_ImplGlfw_KeyCallback(window.getNativeHandle(), k, 0, down ? GLFW_PRESS : GLFW_RELEASE, 0);
+                    prevKeysDown[k] = down;
                 }
             }
 
+            if (ImGui::GetIO().WantTextInput)
+                return;
+
+            static bool cKeyWasDown = false;
+            bool cKeyIsDown = ke.keysDown[GLFW_KEY_C];
+
+            if (cKeyIsDown && !cKeyWasDown) {
+
+                cursorDisabled = !cursorDisabled;
+                if (cursorDisabled)
+                    window.setInputMode(GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+                else 
+                    window.setInputMode(GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                camera.resyncMouse();
+            }
+            cKeyWasDown = cKeyIsDown;
+
             if (!cursorDisabled)
                 return; 
+
+            float dt = window.getClock().getDeltaTime();
+            static float speed = 2.0f;
 
             if(ke.keysDown[GLFW_KEY_W])
                 camera.move(+camera.getFront() * dt * speed);
@@ -160,8 +171,8 @@ int main() {
     );
     window.setMouseButtonCallback(
         [&](const veil::KeyEvents& mbe) {
-            static bool prevDown[GLFW_MOUSE_BUTTON_LAST + 1] = {};
 
+            static bool prevDown[GLFW_MOUSE_BUTTON_LAST + 1] = {};
             for (int b = 0; b <= GLFW_MOUSE_BUTTON_LAST; ++b) {
                 bool down = mbe.keysDown[b];
                 if (down != prevDown[b]) {
@@ -179,8 +190,11 @@ int main() {
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();
 
-            ImGui::Begin("My Debug Window");
-            ImGui::Text("Hello, Worldssssssssssssssssssss!");
+            ImGui::Begin("Function", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
+            if (ImGui::InputText("Enter Function", inputBuf, IM_ARRAYSIZE(inputBuf), ImGuiInputTextFlags_EnterReturnsTrue)) {
+                std::strncpy(formula, inputBuf, sizeof(formula) - 1);
+                formula[sizeof(formula) - 1] = '\0';
+            }
             ImGui::End();
 
             renderer.callbackUniforms();
