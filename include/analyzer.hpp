@@ -23,6 +23,7 @@ class MathFunction {
     public:
         MathFunction(const std::string& formula, const std::string& variable);
 
+        void setFormula(const std::string& formula);
         void generatePoints(float range, float step);
 
         std::string getDerivative() const;
@@ -30,8 +31,8 @@ class MathFunction {
         std::vector<Interval> getSignIntervals() const;
 
     private:
-        const SymEngine::Expression m_variable;
-        const SymEngine::Expression m_functionExpr;
+        SymEngine::Expression m_variable;
+        SymEngine::Expression m_functionExpr;
         mutable SymEngine::LambdaRealDoubleVisitor m_functionVisitor;
 
         std::vector<Point> m_points;

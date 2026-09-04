@@ -23,7 +23,15 @@ MathFunction::MathFunction(const std::string& formula, const std::string& variab
     m_functionVisitor.init({m_variable}, m_functionExpr);
 }
 
+void MathFunction::setFormula(const std::string& formula) {
+
+    m_functionExpr = SymEngine::parse(formula);
+    m_functionVisitor.init({m_variable}, m_functionExpr);
+}
+
 void MathFunction::generatePoints(float range, float step) {
+
+    m_points.clear();   
 
     for (float i = -range/2; i <= range/2; i+=step) {
 
@@ -47,7 +55,7 @@ std::set<float> MathFunction::getRoots() const {
 
     std::set<float> roots;
 
-    for (size_t i = 0; i < m_points.size(); ++i) {
+    for (size_t i = 0; i < m_points.size() - 1; ++i) {
 
         if (m_points[i].y == 0) {
 

@@ -6,14 +6,14 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
-#include <cstring>
+static void getAnalytics(const MathFunction& func, const MathFunction& deriv, 
+                         std::string& roots, std::string& signs, std::string& growth);
 
 int main() {
 
-    bool cursorDisabled = true;
-
+    bool cursorDisabled = false;
     char formula[128] = "x";
-    char inputBuf[128] = "";
+    std::string roots, signs, growth;
 
     MathFunction function(formula, "x");
     function.generatePoints(20.0f, 0.25f);
@@ -21,9 +21,12 @@ int main() {
     derivative.generatePoints(20.0f, 0.25f);
     
     veil::Window window("graphGL", {800.0f, 800.0f});
-    window.setInputMode(GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    window.setInputMode(GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+
     veil::initGL(&window);
     veil::toggleGLFlags(&window, {GL_DEPTH_TEST, GL_CULL_FACE, GL_BLEND, GL_PRIMITIVE_RESTART}, true);
+
+    veil::GLCamera camera({0.0f, 0.0f, 5.5f}, {0.0f, 1.0f, 0.0f}, window.getAspectRatio(), 90.0f);
 
     veil::Storage<veil::ShaderStorage>().loadShader(
         "basic", { {"shader/vertex.vert", GL_VERTEX_SHADER}, {"shader/fragment.frag", GL_FRAGMENT_SHADER} } 
@@ -46,10 +49,9 @@ int main() {
     const veil::ShaderProgram* instancedFontShader = veil::Storage<veil::ShaderStorage>().getShader("instancedFont");
     const veil::UniformBuffer* attitudeUBO = veil::Storage<veil::UniformBufferStorage>().getUBO(0);
 
-    veil::GLCamera camera({0.0f, 0.0f, 5.5f}, {0.0f, 1.0f, 0.0f}, window.getAspectRatio(), 90.0f);
-
     Axis axis(*instancedShader, "aModel");
     axis.updateRange(20.0f);
+
     Graph graph(formula, "x");
     graph.buildMesh(20.0f, 1500);
     graph.getDrawable().scale({5.0f, 5.0f, 5.0f});
@@ -117,19 +119,20 @@ int main() {
     window.setKeyCallback(
         [&](const veil::KeyEvents& ke) {
 
-            if (ImGui::GetIO().WantTextInput)
-                return;
-
             static bool cKeyWasDown = false;
             bool cKeyIsDown = ke.keysDown[GLFW_KEY_C];
 
             if (cKeyIsDown && !cKeyWasDown) {
 
                 cursorDisabled = !cursorDisabled;
-                if (cursorDisabled)
+                if (cursorDisabled) {
                     window.setInputMode(GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-                else 
+                    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouse;
+                }
+                else {
                     window.setInputMode(GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                    ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
+                }
                 camera.resyncMouse();
             }
             cKeyWasDown = cKeyIsDown;
@@ -158,13 +161,42 @@ int main() {
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();
 
-            ImGui::Begin("Function", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
-            if (ImGui::InputText("Enter Function", inputBuf, IM_ARRAYSIZE(inputBuf), ImGuiInputTextFlags_EnterReturnsTrue)) {
-                std::strncpy(formula, inputBuf, sizeof(formula) - 1);
+            ImGui::SetNextWindowPos(ImVec2(5.0f, 5.0f), ImGuiCond_Always);
+            ImGui::Begin("Formula", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
+            if (ImGui::InputText("Enter Function", formula, IM_ARRAYSIZE(formula), ImGuiInputTextFlags_EnterReturnsTrue)) {
+
                 formula[sizeof(formula) - 1] = '\0';
                 
                 graph.setFormula(formula);
                 graph.buildMesh(graph.getCurrentRange(), 1500);
+
+                function.setFormula(formula);
+                function.generatePoints(20.0f, 0.25f);
+                derivative.setFormula(function.getDerivative());
+                derivative.generatePoints(20.0f, 0.25f);    
+
+                getAnalytics(function, derivative, roots, signs, growth);
+            }
+            ImGui::End();
+
+            ImGui::Begin("Analytics");
+            if (ImGui::CollapsingHeader("Roots")) {
+
+                ImGui::BeginChild("Roots", ImVec2(0.0, 100.0), ImGuiChildFlags_Borders, ImGuiWindowFlags_HorizontalScrollbar);
+                ImGui::TextUnformatted(roots.c_str());
+                ImGui::EndChild();
+            }
+            if (ImGui::CollapsingHeader("Signs")) {
+
+                ImGui::BeginChild("Signs", ImVec2(0.0, 100.0), ImGuiChildFlags_Borders, ImGuiWindowFlags_HorizontalScrollbar);
+                ImGui::TextUnformatted(signs.c_str());
+                ImGui::EndChild();
+            }
+            if (ImGui::CollapsingHeader("Growth")) {
+
+                ImGui::BeginChild("Growth", ImVec2(0.0, 100.0), ImGuiChildFlags_Borders, ImGuiWindowFlags_HorizontalScrollbar);
+                ImGui::TextUnformatted(growth.c_str());
+                ImGui::EndChild();
             }
             ImGui::End();
 
@@ -178,9 +210,11 @@ int main() {
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.MouseDrawCursor = false;
+
     ImGui_ImplGlfw_InitForOpenGL(window.getNativeHandle(), true);
     ImGui_ImplOpenGL3_Init("#version 460");
 
@@ -191,4 +225,46 @@ int main() {
     ImGui::DestroyContext();
 
     std::_Exit(code);
+}
+
+void getAnalytics(const MathFunction& func, const MathFunction& deriv, 
+                         std::string& roots, std::string& signs, std::string& growth) {
+    roots = "Roots:\n";
+    const auto& rootArr = func.getRoots();
+    if (rootArr.empty())
+        roots += "None";
+    else {
+        int count = 0;
+        for (const auto& root : rootArr) {
+            roots += std::format("{:.2f}, ", root);
+            if (++count % 3 == 0)
+                roots += "\n";
+        }
+    }
+
+    signs = "Sign intervals:\n";
+    const auto& signArr = func.getSignIntervals();
+    if (signArr.empty())
+        signs += "None";
+    else {
+        int count = 0;
+        for (const auto& interval : signArr) {
+            signs += std::format("{}({:.2f}; {:.2f}),  ", (interval.sign > 0 ? '+' : '-'), interval.start, interval.end);
+            if (++count % 2 == 0)
+                signs += "\n";
+        }
+    }
+
+    growth = "Growth intervals:\n";
+    const auto& growthArr = deriv.getSignIntervals();
+    if (growthArr.empty())
+        growth += "None";
+    else {
+        int count = 0;
+        for (const auto& interval : growthArr) {
+            growth += std::format("{}({:.2f}; {:.2f}),  ", (interval.sign > 0 ? '+' : '-'), interval.start, interval.end);
+            if (++count % 2 == 0)
+                growth += "\n";
+        }
+    }
 }
