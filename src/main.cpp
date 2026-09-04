@@ -229,7 +229,7 @@ int main() {
 
 void getAnalytics(const MathFunction& func, const MathFunction& deriv, 
                          std::string& roots, std::string& signs, std::string& growth) {
-    roots = "Roots:\n";
+    roots = "";
     const auto& rootArr = func.getRoots();
     if (rootArr.empty())
         roots += "None";
@@ -242,7 +242,7 @@ void getAnalytics(const MathFunction& func, const MathFunction& deriv,
         }
     }
 
-    signs = "Sign intervals:\n";
+    signs = "";
     const auto& signArr = func.getSignIntervals();
     if (signArr.empty())
         signs += "None";
@@ -255,7 +255,7 @@ void getAnalytics(const MathFunction& func, const MathFunction& deriv,
         }
     }
 
-    growth = "Growth intervals:\n";
+    growth = "";
     const auto& growthArr = deriv.getSignIntervals();
     if (growthArr.empty())
         growth += "None";
