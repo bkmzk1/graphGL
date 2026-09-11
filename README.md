@@ -26,7 +26,7 @@ cmake --build build --config Release
 ```
 
 ### Feature List
-[x] Function graph with range changing and freecam mode
-[x] Dynamic formula changing
-[x] Function analyzation (roots, sign intervals, increase/decrease intervals)
-[x] Full GPU utilization
+- [x] Function graph with range changing and freecam mode
+- [x] Dynamic formula changing
+- [x] Function analyzation (roots, sign intervals, increase/decrease intervals)
+- [x] Full GPU utilization
