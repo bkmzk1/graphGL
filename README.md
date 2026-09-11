@@ -1,5 +1,5 @@
 
-## A Graphing Calculator utilizing libveil, DearImGui and SymEngine
+## A Graphing Calculator utilizing libveil, DearImGui and SymEngine with function analyzation support
 
 ![Language](https://img.shields.io/badge/language-C%2B%2B-00599C?logo=cplusplus&logoColor=white)
 ![Platform](https://img.shields.io/badge/platform-Fedora%20Linux-51A2DA?logo=fedora&logoColor=white)
