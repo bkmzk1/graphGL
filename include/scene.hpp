@@ -9,8 +9,6 @@
 #include <symengine/parser.h>
 #include <symengine/lambda_double.h>
 
-#include "analyzer.hpp"
-
 class Graph {
     public:
         Graph(const std::string& formula, const std::string& variable);
@@ -51,7 +49,6 @@ class Axis {
 
         std::unique_ptr<veil::Mesh> m_axisMesh;
         std::unique_ptr<veil::Text> m_rangeText;
-
         std::unique_ptr<veil::InstancedMesh> m_axisDrawable;
         std::unique_ptr<veil::InstancedText> m_rangeTextDrawable;
 }; //class Axis

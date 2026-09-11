@@ -7,6 +7,7 @@
 #include <symengine/derivative.h>
 
 struct Point { 
+    
     bool operator<(const Point& other) const;
     float x, y;
 };
@@ -29,6 +30,9 @@ class MathFunction {
         std::string getDerivative() const;
         std::set<float> getRoots() const;
         std::vector<Interval> getSignIntervals() const;
+
+        static void getAnalytics(const MathFunction& func, const MathFunction& deriv, 
+                                 std::string& roots, std::string& signs, std::string& growth);
 
     private:
         SymEngine::Expression m_variable;

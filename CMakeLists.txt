@@ -11,7 +11,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 set(CMAKE_POLICY_VERSION_MINIMUM 3.10)
 
-project(graphGL)
+project(graphGL VERSION 1.0.0)
 
 find_package(glfw3     REQUIRED)
 find_package(OpenGL    REQUIRED)
@@ -33,7 +33,7 @@ set(IMGUI_SOURCES
 add_executable(
     graphGL src/main.cpp
             src/scene.cpp
-            src/analyzer.cpp
+            src/math.cpp
             ${IMGUI_SOURCES}
 )
 

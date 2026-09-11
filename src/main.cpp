@@ -1,23 +1,21 @@
 
 #include "../include/scene.hpp"
-#include "../include/analyzer.hpp"
+#include "../include/math.hpp"
 
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
-static void getAnalytics(const MathFunction& func, const MathFunction& deriv, 
-                         std::string& roots, std::string& signs, std::string& growth);
-
 int main() {
 
     bool cursorDisabled = false;
+
     char formula[128] = "x";
     std::string roots, signs, growth;
 
     MathFunction function(formula, "x");
-    function.generatePoints(20.0f, 0.25f);
     MathFunction derivative(function.getDerivative(), "x");
+    function.generatePoints(20.0f, 0.25f);
     derivative.generatePoints(20.0f, 0.25f);
     
     veil::Window window("graphGL", {800.0f, 800.0f});
@@ -51,7 +49,6 @@ int main() {
 
     Axis axis(*instancedShader, "aModel");
     axis.updateRange(20.0f);
-
     Graph graph(formula, "x");
     graph.buildMesh(20.0f, 1500);
     graph.getDrawable().scale({5.0f, 5.0f, 5.0f});
@@ -175,7 +172,7 @@ int main() {
                 derivative.setFormula(function.getDerivative());
                 derivative.generatePoints(20.0f, 0.25f);    
 
-                getAnalytics(function, derivative, roots, signs, growth);
+                MathFunction::getAnalytics(function, derivative, roots, signs, growth);
             }
             ImGui::End();
 
@@ -225,46 +222,4 @@ int main() {
     ImGui::DestroyContext();
 
     std::_Exit(code);
-}
-
-void getAnalytics(const MathFunction& func, const MathFunction& deriv, 
-                         std::string& roots, std::string& signs, std::string& growth) {
-    roots = "";
-    const auto& rootArr = func.getRoots();
-    if (rootArr.empty())
-        roots += "None";
-    else {
-        int count = 0;
-        for (const auto& root : rootArr) {
-            roots += std::format("{:.2f}, ", root);
-            if (++count % 3 == 0)
-                roots += "\n";
-        }
-    }
-
-    signs = "";
-    const auto& signArr = func.getSignIntervals();
-    if (signArr.empty())
-        signs += "None";
-    else {
-        int count = 0;
-        for (const auto& interval : signArr) {
-            signs += std::format("{}({:.2f}; {:.2f}),  ", (interval.sign > 0 ? '+' : '-'), interval.start, interval.end);
-            if (++count % 2 == 0)
-                signs += "\n";
-        }
-    }
-
-    growth = "";
-    const auto& growthArr = deriv.getSignIntervals();
-    if (growthArr.empty())
-        growth += "None";
-    else {
-        int count = 0;
-        for (const auto& interval : growthArr) {
-            growth += std::format("{}({:.2f}; {:.2f}),  ", (interval.sign > 0 ? '+' : '-'), interval.start, interval.end);
-            if (++count % 2 == 0)
-                growth += "\n";
-        }
-    }
 }

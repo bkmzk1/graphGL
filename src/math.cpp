@@ -1,6 +1,5 @@
 
-#include "../include/analyzer.hpp"
-
+#include "../include/math.hpp"
 #include <format>
 
 bool Point::operator<(const Point& other) const {
@@ -125,4 +124,46 @@ std::vector<Interval> MathFunction::getSignIntervals() const {
         intervals.emplace_back(Interval{intervalStartX, m_points.back().x, currentSign});
 
     return intervals;
+}
+
+void MathFunction::getAnalytics(const MathFunction& func, const MathFunction& deriv, 
+                                std::string& roots, std::string& signs, std::string& growth) {
+    roots = "";
+    const auto& rootArr = func.getRoots();
+    if (rootArr.empty())
+        roots += "None";
+    else {
+        int count = 0;
+        for (const auto& root : rootArr) {
+            roots += std::format("{:.2f}, ", root);
+            if (++count % 3 == 0)
+                roots += "\n";
+        }
+    }
+
+    signs = "";
+    const auto& signArr = func.getSignIntervals();
+    if (signArr.empty())
+        signs += "None";
+    else {
+        int count = 0;
+        for (const auto& interval : signArr) {
+            signs += std::format("{}({:.2f}; {:.2f}),  ", (interval.sign > 0 ? '+' : '-'), interval.start, interval.end);
+            if (++count % 2 == 0)
+                signs += "\n";
+        }
+    }
+
+    growth = "";
+    const auto& growthArr = deriv.getSignIntervals();
+    if (growthArr.empty())
+        growth += "None";
+    else {
+        int count = 0;
+        for (const auto& interval : growthArr) {
+            growth += std::format("{}({:.2f}; {:.2f}),  ", (interval.sign > 0 ? '+' : '-'), interval.start, interval.end);
+            if (++count % 2 == 0)
+                growth += "\n";
+        }
+    }
 }
